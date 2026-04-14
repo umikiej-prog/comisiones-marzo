@@ -365,6 +365,20 @@ const TO_COUNTS = {
   'Brenda Vedoy': 4,      'Ezequiel Maidana': 4,
   'Guido Whelan': 1,      'Cami Roldán': 1,
 };
+// Chile Tienda Online — valores distintos por flow
+const CL_IN_TO = 15000;
+const CL_OUT_TO = 25000;
+const CL_TO_COUNTS = {
+  // Inbound
+  'Cristián Vargas Valenzuela': 1,
+  'Kelly Ruiz':                 2,
+  'Luz Delgado':                3,
+  'Morely Hernandez':           2,
+  // Outbound
+  'Johanna Ochoa':              2,
+  'Maria Pirona':               1,
+  'Luz Maiuri':                 7,
+};
 
 // ── UTILS ─────────────────────────────────────────────────────────────────────
 function norm(s){return String(s??'').trim().replace(/\s+/g,' ').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();}
@@ -587,9 +601,11 @@ function buildResults(parsed){
       ?(anualesOut*AR_OUT_EXTRAS.anual+semestralesOut*AR_OUT_EXTRAS.semestral)
       :0;
 
-    // Tienda Online commission (AR Inbound only)
-    const toCount=(flow==='Inbound'&&pais==='Argentina')?(TO_COUNTS[name]||0):0;
-    const comTO=toCount*10000;
+    // Tienda Online commission (AR Inbound + CL Inbound/Outbound)
+    const toCount=(pais==='Argentina'&&flow==='Inbound')?(TO_COUNTS[name]||0)
+      :pais==='Chile'?(CL_TO_COUNTS[name]||0):0;
+    const toRate=pais==='Argentina'?10000:(flow==='Inbound'?CL_IN_TO:CL_OUT_TO);
+    const comTO=toCount*toRate;
 
     const total=comSaaS+comRev+comExtras+comTO;
 
@@ -658,7 +674,7 @@ function buildTable(rows, key){
     </tr>`).join('');
 
   } else if(key==='CL_IN'){
-    thead=`${th('Ejecutivo')}${th('Cat')}${th('Terminales FP',1)}${th('Obj 1 FP',1)}${th('Obj. Alcanzado')}${th('Com. unitaria',1)}${th('MPCs',1)}${th('Total ventas',1)}${th('Total',1)}`;
+    thead=`${th('Ejecutivo')}${th('Cat')}${th('Terminales FP',1)}${th('Obj 1 FP',1)}${th('Obj. Alcanzado')}${th('Com. unitaria',1)}${th('MPCs',1)}${th('Total ventas',1)}${th('TO cuentas',1)}${th('Com. TO',1)}${th('Total',1)}`;
     tbody=rows.map(r=>`<tr>
       <td><div class="name">${r.name}</div></td>
       <td><span class="pill">${r.cat}</span></td>
@@ -668,11 +684,13 @@ function buildTable(rows, key){
       <td class="r">${fmt(r.comUnit)}</td>
       <td class="r"><span class="clickable" onclick="openDrill('${r.name}','mpc')">${fmt(r.saas)}</span></td>
       <td class="r ok">${fmt(r.comSaaS)}</td>
+      <td class="r">${r.to>0?`<strong>${r.to}</strong>`:'—'}</td>
+      <td class="r ok">${r.comTO>0?fmt(r.comTO):'—'}</td>
       <td class="r"><strong>${fmt(r.total)}</strong></td>
     </tr>`).join('');
 
   } else if(key==='CL_OUT'){
-    thead=`${th('Ejecutivo')}${th('Cat')}${th('Terminales FP',1)}${th('Obj 1 FP',1)}${th('Obj. Alcanzado')}${th('Com. unitaria',1)}${th('MPCs',1)}${th('Total ventas',1)}${th('Total',1)}`;
+    thead=`${th('Ejecutivo')}${th('Cat')}${th('Terminales FP',1)}${th('Obj 1 FP',1)}${th('Obj. Alcanzado')}${th('Com. unitaria',1)}${th('MPCs',1)}${th('Total ventas',1)}${th('TO cuentas',1)}${th('Com. TO',1)}${th('Total',1)}`;
     tbody=rows.map(r=>`<tr>
       <td><div class="name">${r.name}</div></td>
       <td><span class="pill">${r.cat}</span></td>
@@ -682,6 +700,8 @@ function buildTable(rows, key){
       <td class="r">${fmt(r.comUnit)}</td>
       <td class="r"><span class="clickable" onclick="openDrill('${r.name}','mpc')">${fmt(r.saas)}</span></td>
       <td class="r ok">${fmt(r.comSaaS)}</td>
+      <td class="r">${r.to>0?`<strong>${r.to}</strong>`:'—'}</td>
+      <td class="r ok">${r.comTO>0?fmt(r.comTO):'—'}</td>
       <td class="r"><strong>${fmt(r.total)}</strong></td>
     </tr>`).join('');
 
@@ -982,6 +1002,15 @@ function buildCarta(r){
     let toRows='';
     toRows+=row('Cuentas TO',null,r.to);
     toRows+=row('Valor por cuenta','10.000 ARS','10.000');
+    toRows+=row('Total Tienda Online',null,fmt(r.comTO),true);
+    sections+=`<div class="carta-section"><div class="carta-section-title">Tienda Online</div>${toRows}</div>`;
+  }
+  // CL Tienda Online (Inbound $15.000 / Outbound $25.000)
+  if(r.pais==='Chile'&&r.comTO>0){
+    const toRate=r.flow==='Inbound'?CL_IN_TO:CL_OUT_TO;
+    let toRows='';
+    toRows+=row('Ventas TO',null,r.to);
+    toRows+=row('Incentivo por cuenta',`${r.flow}`,fmt(toRate));
     toRows+=row('Total Tienda Online',null,fmt(r.comTO),true);
     sections+=`<div class="carta-section"><div class="carta-section-title">Tienda Online</div>${toRows}</div>`;
   }
